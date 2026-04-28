@@ -6,11 +6,15 @@ export default function Home() {
   const [step, setStep] = useState('welcome');
 
   //#region 基本資料
+  //一般資料宣告
   const [gender, setGender] = useState('');
   const [age, setAge] = useState('');
   const [region, setRegion] = useState('');
   const [education, setEducation] = useState('');
   const [profileError, setProfileError] = useState('');
+  //頁尾聯絡資訊宣告
+  const [email, setEmail] = useState('');
+  const [feedback, setFeedback] = useState('');
   // #endregion
 
   //#region 填答資格
@@ -23,6 +27,7 @@ export default function Home() {
   // #endregion
 
   //#region AHP 練習
+  const [demoSlider, setDemoSlider] = useState(9);
   const [practiceBC, setPracticeBC] = useState(9);
   // #endregion
 
@@ -110,10 +115,41 @@ export default function Home() {
     ['BC', 'B', 'C'],
   ];
 
+  //#region 排序題
+  //排序題題號宣告
+  const [rankings, setRankings] = useState({
+    lv1: ['A', 'B', 'C'],
+    lv2_1: ['A', 'B', 'C'],
+    lv2_2: ['A', 'B', 'C'],
+    lv2_3: ['A', 'B', 'C'],
+  });
+  //排序題渲染
+  const moveRankingItem = (groupKey, fromIndex, toIndex) => {
+    setRankings((prev) => {
+      const currentRanking = [...prev[groupKey]];
+
+      if (toIndex < 0 || toIndex >= currentRanking.length) {
+        return prev;
+      }
+
+      const [movedItem] = currentRanking.splice(fromIndex, 1);
+      currentRanking.splice(toIndex, 0, movedItem);
+
+      return {
+        ...prev,
+        [groupKey]: currentRanking,
+      };
+    });
+  };
+  //#endregion
+
+  //#region 進度條
+  // 進度條步驟宣告
   const progressSteps = [
     'profile',
     'eligibility',
     'tutorial',
+    'tutorialPractice',
     'formalIntro',
     'lv1Intro',
     'lv1Done',
@@ -125,7 +161,7 @@ export default function Home() {
     'lv2_3Done',
     'finished',
   ];
-
+  // 進度條渲染函式
   const renderProgressBar = () => {
     const currentIndex = progressSteps.indexOf(step);
 
@@ -155,6 +191,7 @@ export default function Home() {
       </div>
     );
   };
+  //#endregion
 
   // AHP頁面內容宣告
   const ahpPages = {
@@ -249,8 +286,8 @@ export default function Home() {
 
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-3xl px-6 py-12">
-          <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
+          <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
             {renderProgressBar()}
             <h2 className="text-2xl font-bold tracking-tight">
               {group.title}
@@ -270,10 +307,67 @@ export default function Home() {
                 </div>
               ))}
 
+              <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4">
+                <p className="font-medium text-blue-900">
+                  排序題：
+                </p>
+
+                <p className="mt-2 text-blue-800">
+                  請先依照您直覺認為的重要程度，將下列三個因素由上到下排序。
+                  後續的比較題可依此排序作為參考。
+                </p>
+
+                <div className="mt-4 space-y-3">
+                  {rankings[groupKey].map((itemKey, index) => {
+                    const item = group.items[itemKey];
+
+                    return (
+                      <div
+                        key={itemKey}
+                        className="flex items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 ring-1 ring-blue-100"
+                      >
+                        <p className="text-sm text-slate-900">
+                          <span className="block font-semibold">
+                            第 {index + 1} 名
+                          </span>
+                          <span className="mt-1 block">
+                            {itemKey}. {item.name}
+                          </span>
+                        </p>
+
+                        <div className="flex shrink-0 flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={() => moveRankingItem(groupKey, index, index - 1)}
+                            disabled={index === 0}
+                            className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            上移
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => moveRankingItem(groupKey, index, index + 1)}
+                            disabled={index === rankings[groupKey].length - 1}
+                            className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            下移
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
                 <p className="font-medium text-amber-900">作答提醒：</p>
                 <p className="mt-2 text-amber-800">
-                  接下來您將依序完成三組兩兩比較。請依照滑桿的左右方向與比例意義，判斷各構面之間的相對重要程度。
+                  接下來您將依序完成三組兩兩比較。請
+                  <span className="font-semibold text-amber-900">
+                    依照滑桿的左右方向與比例意義
+                  </span>
+                  ，判斷各構面之間的相對重要程度。
                 </p>
               </div>
             </div>
@@ -286,13 +380,20 @@ export default function Home() {
 
                 return (
                   <div key={pairKey} className="rounded-xl border border-slate-200 p-4">
-                    <p className="text-sm font-medium text-slate-900">
-                      {leftKey}【{left.name}】 vs {rightKey}【{right.name}】
-                    </p>
+                    <div className="space-y-1 sm:space-y-0 sm:flex sm:items-center sm:gap-2">
+                      <p className="text-sm font-medium text-slate-900">
+                        {leftKey}. {left.name}
+                      </p>
+                      <p className="hidden text-xs font-medium uppercase tracking-wide text-slate-500 sm:block">
+                        vs
+                      </p>
+                      <p className="text-sm font-medium text-slate-900">
+                        {rightKey}. {right.name}
+                      </p>
+                    </div>
 
-                    <div className="mt-4 grid grid-cols-3 items-center gap-3 text-sm text-slate-700">
+                    <div className="mt-4 flex items-center justify-between gap-3 text-sm text-slate-700">
                       <div className="font-medium">{leftKey} {left.name}</div>
-                      <div className="text-center text-slate-500">中間 = 一樣重要</div>
                       <div className="text-right font-medium">{rightKey} {right.name}</div>
                     </div>
 
@@ -307,6 +408,10 @@ export default function Home() {
                       }}
                       className="mt-4 w-full"
                     />
+
+                    <div className="mt-2 text-center text-xs text-slate-500">
+                      滑桿位置9 = 一樣重要
+                    </div>
 
                     <div className="mt-3 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
                       <p>滑桿位置：{currentValue}</p>
@@ -323,7 +428,7 @@ export default function Home() {
               </div>
             )}
 
-            <div className="mt-8 flex gap-3">
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => setStep(group.backStep)}
                 className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
@@ -396,8 +501,8 @@ export default function Home() {
     const groupKey = page.groupKey;
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-3xl px-6 py-12">
-          <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
+          <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
             {renderProgressBar()}
             <h2 className="text-2xl font-bold tracking-tight">
               {page.title}
@@ -412,6 +517,18 @@ export default function Home() {
                   到下一頁前，請您回頭想想剛才三組比較結果是否合理，
                   並確認整體判斷是否符合您的真實想法。
                 </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-100 px-4 py-4">
+                <p className="font-medium text-slate-900">您剛才的排序結果：</p>
+
+                <div className="mt-2 space-y-1">
+                  {rankings[groupKey].map((itemKey, index) => (
+                    <p key={itemKey}>
+                      第 {index + 1} 名：{itemKey}. {ahpPages[groupKey].items[itemKey].name}
+                    </p>
+                  ))}
+                </div>
               </div>
 
               <div className="rounded-xl bg-slate-100 px-4 py-4">
@@ -430,7 +547,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="mt-8 flex gap-3">
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => setStep(page.backStep)}
                 className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
@@ -451,6 +568,67 @@ export default function Home() {
     );
   };
 
+  //送出狀態宣告
+  const [submitStatus, setSubmitStatus] = useState('idle');
+  const [submitError, setSubmitError] = useState('');
+
+  //問卷送出資料整理
+  const buildSubmitData = () => {
+    return {
+      submittedAt: new Date().toISOString(),
+
+      profile: {
+        gender,
+        age,
+        region,
+        education,
+      },
+
+      eligibility: {
+        rpgSteamUse,
+        reviewUse,
+        featureKnow,
+      },
+
+      rankings,
+
+      answers,
+
+      contact: {
+        email,
+        feedback,
+      },
+    };
+  };
+
+  //問卷送出函式
+  const submitQuestionnaire = async () => {
+    setSubmitStatus('submitting');
+    setSubmitError('');
+
+    try {
+      const response = await fetch('/api/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(buildSubmitData()),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || '送出失敗');
+      }
+
+      setSubmitStatus('success');
+    } catch (error) {
+      console.error(error);
+      setSubmitStatus('error');
+      setSubmitError('資料送出時發生問題，請稍後再試。');
+    }
+  };
+
   //問卷重置函式
   const resetQuestionnaire = () => {
     setStep('welcome');
@@ -467,6 +645,12 @@ export default function Home() {
     setEligibilityError('');
 
     setPracticeBC(9);
+
+    setEmail('');
+    setFeedback('');
+
+    setSubmitStatus('idle');
+    setSubmitError('');
 
     setAnswers({
       lv1: {
@@ -491,6 +675,13 @@ export default function Home() {
       },
     });
 
+    setRankings({
+      lv1: ['A', 'B', 'C'],
+      lv2_1: ['A', 'B', 'C'],
+      lv2_2: ['A', 'B', 'C'],
+      lv2_3: ['A', 'B', 'C'],
+    });
+
     setErrors({
       lv1: '',
       lv2_1: '',
@@ -503,38 +694,118 @@ export default function Home() {
   if (step === 'welcome') {
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-3xl px-6 py-12">
-          <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
+          <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
             <h1 className="text-3xl font-bold tracking-tight">
-              Steam RPG 推薦評論有效性評估問卷
+              Steam RPG 推薦評論的有效性評估
             </h1>
 
-            <p className="mt-4 text-base leading-7 text-slate-700">
-              您好，感謝您撥空填寫本問卷。本研究主要希望了解玩家在閱讀
-              Steam 平台 RPG 遊戲推薦評論時，哪些因素會影響其對評論有效性的判斷。
-            </p>
+            <div className="mt-6 space-y-6 text-sm leading-7 text-slate-700">
+              <div className="space-y-3">
+                <p>您好：</p>
+                <p>
+                  感謝您撥空填寫本問卷。這是一份關於 Steam 平台 RPG 推薦評論有效性評估的碩士論文研究問卷。
+                  主要希望了解玩家在閱讀 Steam RPG 遊戲推薦評論時，哪些因素會影響其對評論有效性的判斷。
+                </p>
+              </div>
 
-            <div className="mt-6 space-y-3 text-sm leading-7 text-slate-700">
-              <p>
-                <span className="font-semibold text-slate-900">填答資格：</span>
-                年滿 18 歲，且具 Steam 使用經驗者。
-              </p>
-              <p>
-                <span className="font-semibold text-slate-900">填答時間：</span>
-                約 10–15 分鐘。
-              </p>
-              <p>
-                <span className="font-semibold text-slate-900">資料使用說明：</span>
-                本問卷採匿名方式蒐集，僅供學術研究與統計分析使用。
-              </p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <p className="font-semibold text-slate-900">
+                  一、研究目的與名詞說明
+                </p>
+                <p className="mt-3">
+                  本研究所稱之「評論有效性」，係指評論
+                  <span className="font-semibold text-slate-900">
+                    降低資訊不對稱，從而強化潛在購買者之決策支持能力
+                  </span>
+                  。
+                </p>
+
+                <p className="mt-2">
+                  換言之，一則評論
+                  <span className="font-semibold text-slate-900">
+                    是否能幫助玩家更快理解遊戲內容，並在購買前做出較可靠的判斷
+                  </span>
+                  。
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <p className="font-semibold text-slate-900">
+                  二、填答說明（成對比較問卷型式）
+                </p>
+                <p className="mt-3">
+                  問卷中會請您比較兩項因素，例如 A 與 B，請選出您認為哪一項對判斷評論是否有效更重要，以及重要程度。
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <p className="font-semibold text-slate-900">
+                  三、填答資格與時間
+                </p>
+                <div className="mt-3 space-y-2">
+                  <p>
+                    <span className="font-medium text-slate-900">填答資格：</span>
+                    年滿 18 歲，且具 Steam 使用經驗者。
+                  </p>
+                  <p>
+                    <span className="font-medium text-slate-900">填答時間：</span>
+                    約 15 分鐘。
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <p className="font-semibold text-slate-900">
+                  四、資料使用與隱私保護
+                </p>
+                <p className="mt-3">
+                  您的填答資料僅供學術研究與統計分析使用，研究結果將以整體彙整方式呈現，不會揭露個別回答。
+                </p>
+                <p className="mt-2">
+                  若您欲參與抽獎，需自願留下電子郵件。電子郵件僅作為抽獎通知與獎項聯繫用途，不會用於研究分析或公開呈現。
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
+                <p className="font-semibold text-amber-900">
+                  五、填答獎勵
+                </p>
+                <p className="mt-3 text-amber-800">
+                  凡完整填答並符合研究分析條件者，即可參加抽獎。
+                </p>
+                <p className="mt-2 text-amber-800">
+                  獎項為：Steam 遊戲《Slay the Spire 2（殺戮尖塔 2）》4 份。
+                </p>
+                <div className="mt-3 space-y-1 text-xs leading-6 text-amber-700">
+                  <p>＊如得獎者已擁有該遊戲，可更換為等值遊戲。</p>
+                  <p>＊得獎名單將於問卷回收後以電腦隨機抽出，並以填答者所留電子郵件個別通知。</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <p className="font-semibold text-slate-900">
+                  研究聯絡方式
+                </p>
+                <p className="mt-3">
+                  若您對本研究或問卷內容有任何疑問，歡迎聯絡研究者：
+                </p>
+                <div className="mt-3 space-y-1">
+                  <p>指導教授：吳帆 博士</p>
+                  <p>研究生：王煜凱</p>
+                  <p>聯絡信箱：jason.763226@gmail.com</p>
+                </div>
+              </div>
             </div>
 
-            <button
-              onClick={() => setStep('profile')}
-              className="mt-8 rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
-            >
-              開始填答
-            </button>
+            <div className="mt-8 flex justify-center">
+              <button
+                onClick={() => setStep('profile')}
+                className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+              >
+                開始填答
+              </button>
+            </div>
           </div>
         </div>
       </main>
@@ -544,8 +815,8 @@ export default function Home() {
   if (step === 'profile') {
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-3xl px-6 py-12">
-          <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
+          <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
             {renderProgressBar()}
             <h2 className="text-2xl font-bold tracking-tight">基本資料頁</h2>
 
@@ -791,7 +1062,7 @@ export default function Home() {
             </div>
 
 
-            <div className="mt-8 flex gap-3">
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => setStep('welcome')}
                 className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
@@ -823,8 +1094,8 @@ export default function Home() {
   if (step === 'eligibility') {
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-3xl px-6 py-12">
-          <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
+          <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
             {renderProgressBar()}
             <h2 className="text-2xl font-bold tracking-tight">填答條件確認</h2>
 
@@ -910,6 +1181,21 @@ export default function Home() {
                   3. 您是否了解 Steam 評論區的常見功能，例如「推薦／不推薦」、「有幫助」或「有趣」等互動機制？
                 </p>
 
+                <img
+                  src="/images/SteamRecommendReview.jpg"
+                  alt="Steam 評論區常見功能示意圖1"
+                  className="mt-4 w-full rounded-xl border border-slate-200"
+                />
+                <img
+                  src="/images/SteamReviewReact.jpg"
+                  alt="Steam 評論區常見功能示意圖2"
+                  className="mt-4 w-full rounded-xl border border-slate-200"
+                />
+
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  圖片取自Steam官網
+                </p>
+
                 <div className="mt-3 space-y-2 text-sm text-slate-700">
                   <label className="flex items-center gap-2">
                     <input
@@ -957,7 +1243,7 @@ export default function Home() {
 
 
 
-            <div className="mt-8 flex gap-3">
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => setStep('profile')}
                 className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
@@ -995,8 +1281,8 @@ export default function Home() {
   if (step === 'rejected') {
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-3xl px-6 py-12">
-          <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
+          <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
             <h2 className="text-2xl font-bold tracking-tight">感謝您的填答</h2>
 
             <p className="mt-4 text-base leading-7 text-slate-700">
@@ -1007,7 +1293,7 @@ export default function Home() {
               仍誠摯感謝您的參與與協助。
             </p>
 
-            <div className="mt-8 flex gap-3">
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => setStep('welcome')}
                 className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
@@ -1024,15 +1310,13 @@ export default function Home() {
   if (step === 'tutorial') {
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-3xl px-6 py-12">
-          <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
+          <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
             {renderProgressBar()}
-            <h2 className="text-2xl font-bold tracking-tight">作答說明與練習</h2>
+            <h2 className="text-2xl font-bold tracking-tight">問卷作答說明</h2>
 
             <div className="mt-6 space-y-6 text-sm leading-7 text-slate-700">
               <div className="space-y-3">
-                <p>我們先來一起練習一下。</p>
-                <p>接下來將進入 AHP 兩兩比較題。</p>
                 <p>
                   在後面的題目中，您會看到兩個因素，請依您的實際經驗判斷：
                   <span className="font-semibold text-slate-900">
@@ -1065,9 +1349,41 @@ export default function Home() {
                 <p className="font-medium text-slate-900">
                   本問卷中，滑桿 1–17 分別對應兩側內容的重要程度比例：
                 </p>
+
                 <p className="mt-3 break-words text-slate-700">
                   9:1、8:1、7:1、6:1、5:1、4:1、3:1、2:1、1:1、1:2、1:3、1:4、1:5、1:6、1:7、1:8、1:9
                 </p>
+
+                <div className="mt-5 rounded-xl bg-slate-100 px-4 py-4">
+                  <p className="text-sm font-medium text-slate-900">
+                    您可以先試著拖曳下方滑桿，熟悉比例變化：
+                  </p>
+
+                  <div className="mt-4 flex items-center justify-between gap-3 text-sm text-slate-700">
+                    <div className="font-medium">左側因素</div>
+                    <div className="text-right font-medium">右側因素</div>
+                  </div>
+
+                  <input
+                    type="range"
+                    min="1"
+                    max="17"
+                    step="1"
+                    value={demoSlider}
+                    onChange={(e) => setDemoSlider(Number(e.target.value))}
+                    className="mt-4 w-full"
+                  />
+
+                  <div className="mt-3 rounded-xl bg-white px-4 py-3 text-sm text-slate-700">
+                    <p>目前滑桿位置：{demoSlider}</p>
+                    <p>對應比例：{sliderRatioMap[demoSlider]}</p>
+                    <p className="mt-1 text-slate-500">
+                      {demoSlider < 9 && '目前表示左側因素較重要'}
+                      {demoSlider === 9 && '目前表示兩者一樣重要'}
+                      {demoSlider > 9 && '目前表示右側因素較重要'}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="rounded-xl border border-slate-200 px-4 py-4">
@@ -1089,14 +1405,43 @@ export default function Home() {
               </div>
 
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4">
-                <p className="font-medium text-emerald-900">正式作答前提醒：</p>
+                <p className="font-medium text-emerald-900">作答前提醒：</p>
                 <p className="mt-2 text-emerald-800">
                   本問卷中的滑桿位置具有比例意義，請不要只判斷左右方向，也請同時考慮兩者之間的重要倍數差距。
                 </p>
               </div>
             </div>
 
-            <div className="mt-4 space-y-4 text-sm leading-7 text-slate-700">
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => setStep('eligibility')}
+                className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+              >
+                回到篩選頁
+              </button>
+
+              <button
+                onClick={() => setStep('tutorialPractice')}
+                className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+              >
+                下一步：進入練習題
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (step === 'tutorialPractice') {
+    return (
+      <main className="min-h-screen bg-slate-50 text-slate-900">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
+          <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
+            {renderProgressBar()}
+            <h2 className="text-2xl font-bold tracking-tight">練習題</h2>
+
+            <div className="mt-6 space-y-4 text-sm leading-7 text-slate-700">
               <p>
                 以下練習題僅用於確認您是否理解作答方式，不會影響正式作答結果。
               </p>
@@ -1120,7 +1465,8 @@ export default function Home() {
             <div className="mt-8 space-y-4">
               <div className="rounded-xl border border-slate-200 p-4">
                 <p className="text-sm font-medium text-slate-900">
-                  已知比較 1：A 劇情有深度 vs B 畫面表現出眾
+                  <span className="block">已知比較 1：</span>
+                  <span className="mt-1 block">A 劇情有深度 vs B 畫面表現出眾</span>
                 </p>
                 <p className="mt-2 text-sm text-slate-700">
                   A 比 B 稍微重要
@@ -1129,7 +1475,8 @@ export default function Home() {
 
               <div className="rounded-xl border border-slate-200 p-4">
                 <p className="text-sm font-medium text-slate-900">
-                  已知比較 2：A 劇情有深度 vs C 音樂動聽
+                  <span className="block">已知比較 2：</span>
+                  <span className="mt-1 block">A 劇情有深度 vs C 音樂動聽</span>
                 </p>
                 <p className="mt-2 text-sm text-slate-700">
                   A 比 C 極為重要
@@ -1138,12 +1485,12 @@ export default function Home() {
 
               <div className="rounded-xl border border-slate-200 p-4">
                 <p className="text-sm font-medium text-slate-900">
-                  請完成比較 3：B 畫面表現出眾 vs C 音樂動聽
+                  <span className="block">請完成比較 3：</span>
+                  <span className="mt-1 block">B 畫面表現出眾 vs C 音樂動聽</span>
                 </p>
 
-                <div className="mt-4 grid grid-cols-3 items-center gap-3 text-sm text-slate-700">
+                <div className="mt-4 flex items-center justify-between gap-3 text-sm text-slate-700">
                   <div className="font-medium">B 畫面表現出眾</div>
-                  <div className="text-center text-slate-500">中間 = 一樣重要</div>
                   <div className="text-right font-medium">C 音樂動聽</div>
                 </div>
 
@@ -1157,6 +1504,10 @@ export default function Home() {
                   className="mt-4 w-full"
                 />
 
+                <div className="mt-2 text-center text-xs text-slate-500">
+                  滑桿位置9 = 一樣重要
+                </div>
+
                 <div className="mt-3 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
                   <p>目前滑桿位置：{practiceBC}</p>
                   <p>對應比例：{sliderRatioMap[practiceBC]}</p>
@@ -1169,12 +1520,12 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="mt-8 flex gap-3">
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <button
-                onClick={() => setStep('eligibility')}
+                onClick={() => setStep('tutorial')}
                 className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
               >
-                回到篩選頁
+                回到作答說明
               </button>
 
               <button
@@ -1199,8 +1550,8 @@ export default function Home() {
   if (step === 'logicHelp') {
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-3xl px-6 py-12">
-          <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
+          <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
             <h2 className="text-2xl font-bold tracking-tight">邏輯補充說明</h2>
 
             <p className="mt-4 text-base leading-7 text-slate-700">
@@ -1226,9 +1577,9 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="mt-8 flex gap-3">
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <button
-                onClick={() => setStep('tutorial')}
+                onClick={() => setStep('tutorialPractice')}
                 className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
               >
                 回到練習題
@@ -1243,20 +1594,81 @@ export default function Home() {
   if (step === 'formalIntro') {
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-3xl px-6 py-12">
-          <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
+          <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
             {renderProgressBar()}
             <h2 className="text-2xl font-bold tracking-tight">正式作答開始</h2>
 
-            <div className="mt-4 space-y-4 text-sm leading-7 text-slate-700">
-              <p>
-                接下來將進入正式問卷作答。
-              </p>
+            <div className="mt-6 space-y-6 text-sm leading-7 text-slate-700">
+              <div className="space-y-4">
+                <p>
+                  本研究將 Steam 平台 RPG 推薦評論「有效性」視為整體評估目標（Lv0），
+                  其中有效性界定為評論在購買前提供決策支持、降低資訊不對稱之能力。
+                </p>
 
-              <p>
-                正式題目將以 AHP 兩兩比較方式呈現，請您依據自身經驗，判斷各因素在評估
-                Steam 上 RPG 推薦評論有效性時的相對重要程度。
-              </p>
+                <p>
+                  依據文獻整理與平台特性，本研究將評估架構劃分為三個主要構面（Lv1）：
+                  <span className="font-semibold text-slate-900">評論者屬性構面</span>、
+                  <span className="font-semibold text-slate-900">評論內容構面</span>、
+                  <span className="font-semibold text-slate-900">使用者互動構面</span>。
+                  同時，各構面下再細分為可量化之評估特徵（Lv2）。
+                </p>
+
+                <img
+                  src="/images/AhpLayers3.png"
+                  alt="AHP 評估架構圖"
+                  className="w-full rounded-xl border border-slate-200"
+                />
+
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <p className="font-semibold text-slate-900">
+                  第 1 組：主要構面比較（Lv1）
+                </p>
+                <div className="mt-3 space-y-1">
+                  <p>• 評論者屬性構面</p>
+                  <p>• 評論內容構面</p>
+                  <p>• 使用者互動構面</p>
+                </div>
+                <p className="mt-3 text-xs text-slate-500">本組共 3 題</p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <p className="font-semibold text-slate-900">
+                  第 2 組：評論者屬性構面（Lv2）
+                </p>
+                <div className="mt-3 space-y-1">
+                  <p>• 該遊戲遊玩時數</p>
+                  <p>• 帳號總擁有遊戲數量</p>
+                  <p>• 帳號累積評論數</p>
+                </div>
+                <p className="mt-3 text-xs text-slate-500">本組共 3 題</p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <p className="font-semibold text-slate-900">
+                  第 3 組：評論內容構面（Lv2）
+                </p>
+                <div className="mt-3 space-y-1">
+                  <p>• 評論長度</p>
+                  <p>• 熵值（用詞多樣性）</p>
+                  <p>• 評論雙向性</p>
+                </div>
+                <p className="mt-3 text-xs text-slate-500">本組共 3 題</p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <p className="font-semibold text-slate-900">
+                  第 4 組：使用者互動構面（Lv2）
+                </p>
+                <div className="mt-3 space-y-1">
+                  <p>• 有幫助票數</p>
+                  <p>• 有趣票數</p>
+                  <p>• 回覆（留言）長度</p>
+                </div>
+                <p className="mt-3 text-xs text-slate-500">本組共 3 題</p>
+              </div>
 
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
                 <p className="font-medium text-amber-900">作答前提醒：</p>
@@ -1266,9 +1678,9 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="mt-8 flex gap-3">
+            <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <button
-                onClick={() => setStep('tutorial')}
+                onClick={() => setStep('tutorialPractice')}
                 className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
               >
                 回到練習題
@@ -1322,21 +1734,73 @@ export default function Home() {
   if (step === 'finished') {
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-3xl px-6 py-12">
-          <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
+          <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
             <h2 className="text-2xl font-bold tracking-tight">問卷已完成</h2>
 
             <p className="mt-4 text-base leading-7 text-slate-700">
               感謝您的填答。您已完成本問卷所有 AHP 兩兩比較題。
             </p>
 
-            <div className="mt-8 flex gap-3">
-              <button
-                onClick={resetQuestionnaire}
-                className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-              >
-                回到首頁
-              </button>
+            <div className="mt-6 space-y-5">
+              <div>
+                <label className="mb-3 block text-sm font-medium text-slate-900">
+                  Mail（若是不參加抽獎則可以不用填）
+                </label>
+
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="請填入文字"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="mb-3 block text-sm font-medium text-slate-900">
+                  意見回饋，有任何想法或問題都歡迎提出。
+                </label>
+
+                <textarea
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  placeholder="請填入文字"
+                  rows="4"
+                  className="w-full resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900"
+                />
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-col items-center justify-center gap-3">
+              {submitError && (
+                <div className="w-full rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm leading-7 text-red-700">
+                  {submitError}
+                </div>
+              )}
+
+              {submitStatus === 'success' ? (
+                <>
+                  <div className="w-full rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm leading-7 text-emerald-800">
+                    您的問卷資料已成功送出，感謝您的填答。
+                  </div>
+
+                  <button
+                    onClick={resetQuestionnaire}
+                    className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                  >
+                    回到首頁
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={submitQuestionnaire}
+                  disabled={submitStatus === 'submitting'}
+                  className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {submitStatus === 'submitting' ? '送出中...' : '送出問卷'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1346,8 +1810,8 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="mx-auto max-w-3xl px-6 py-12">
-        <div className="rounded-2xl bg-white p-8 shadow-sm ring-1 ring-slate-200">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
+        <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
           <h2 className="text-2xl font-bold tracking-tight">頁面狀態錯誤</h2>
           <p className="mt-4 text-sm leading-7 text-slate-700">
             目前 step 沒有對應到任何頁面，請檢查 setStep 的名稱是否拼寫正確。
