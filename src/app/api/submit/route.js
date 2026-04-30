@@ -55,6 +55,7 @@ export async function POST(request) {
 
       rankings: data.rankings ?? null,
       answers: data.answers ?? null,
+      ahp_results: data.ahpResults ?? null,
 
       submitted_at: data.submittedAt ?? new Date().toISOString(),
     });
