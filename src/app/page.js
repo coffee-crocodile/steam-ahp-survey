@@ -368,7 +368,7 @@ export default function Home() {
   const ahpPages = {
     lv1: {
       title: '第 1 組：主要構面比較',
-      intro: '接下來，請比較三個主要構面在評估「Steam 上 RPG 推薦評論有效性」時的相對重要程度。',
+      intro: '接下來，請比較三個主要構面在評估「Steam 上 RPG 推薦評論實用性」時的相對重要程度。',
       backStep: 'formalIntro',
       nextStep: 'lv1Done',
       items: {
@@ -389,7 +389,7 @@ export default function Home() {
 
     lv2_1: {
       title: '第 2 組：評論者屬性構面比較',
-      intro: '接下來，請比較「評論者屬性構面」中的三個子因素，判斷它們在評估 Steam 上 RPG 推薦評論有效性時的相對重要程度。',
+      intro: '接下來，請比較「評論者屬性構面」中的三個子因素，判斷它們在評估 Steam 上 RPG 推薦評論實用性時的相對重要程度。',
       backStep: 'lv1Done',
       nextStep: 'lv2_1Done',
       items: {
@@ -410,7 +410,7 @@ export default function Home() {
 
     lv2_2: {
       title: '第 3 組：評論內容構面比較',
-      intro: '接下來，請比較「評論內容構面」中的三個子因素，判斷它們在評估 Steam 上 RPG 推薦評論有效性時的相對重要程度。',
+      intro: '接下來，請比較「評論內容構面」中的三個子因素，判斷它們在評估 Steam 上 RPG 推薦評論實用性時的相對重要程度。',
       backStep: 'lv2_1Done',
       nextStep: 'lv2_2Done',
       items: {
@@ -431,7 +431,7 @@ export default function Home() {
 
     lv2_3: {
       title: '第 4 組：使用者互動構面比較',
-      intro: '接下來，請比較「使用者互動構面」中的三個子因素，判斷它們在評估 Steam 上 RPG 推薦評論有效性時的相對重要程度。',
+      intro: '接下來，請比較「使用者互動構面」中的三個子因素，判斷它們在評估 Steam 上 RPG 推薦評論實用性時的相對重要程度。',
       backStep: 'lv2_2Done',
       nextStep: 'lv2_3Done',
       items: {
@@ -1063,15 +1063,15 @@ export default function Home() {
         <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
           <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
             <h1 className="text-3xl font-bold tracking-tight">
-              Steam RPG 推薦評論的有效性評估
+              Steam RPG 推薦評論的實用性評估
             </h1>
 
             <div className="mt-6 space-y-6 text-sm leading-7 text-slate-700">
               <div className="space-y-3">
                 <p>您好：</p>
                 <p>
-                  感謝您撥空填寫本問卷。這是一份關於 Steam 平台 RPG 推薦評論有效性評估的碩士論文研究問卷。
-                  主要希望了解玩家在閱讀 Steam RPG 遊戲推薦評論時，哪些因素會影響其對評論有效性的判斷。
+                  感謝您撥空填寫本問卷。這是一份關於 Steam 平台 RPG 推薦評論實用性評估的碩士論文研究問卷。
+                  主要希望了解玩家在閱讀 Steam RPG 遊戲推薦評論時，哪些因素會影響其對評論實用性的判斷。
                 </p>
               </div>
 
@@ -1080,7 +1080,7 @@ export default function Home() {
                   一、研究目的與名詞說明
                 </p>
                 <p className="mt-3">
-                  本研究所稱之「評論有效性」，係指評論
+                  本研究所稱之「評論實用性」，係指評論
                   <span className="font-semibold text-slate-900">
                     降低資訊不對稱，從而強化潛在購買者之決策支持能力
                   </span>
@@ -1101,7 +1101,7 @@ export default function Home() {
                   二、填答說明（成對比較問卷型式）
                 </p>
                 <p className="mt-3">
-                  問卷中會請您比較兩項因素，例如 A 與 B，請選出您認為哪一項對判斷評論是否有效更重要，以及重要程度。
+                  問卷中會請您比較兩項因素，例如 A 與 B，請選出您認為哪一項對判斷評論是否實用更重要，以及重要程度。
                 </p>
               </div>
 
@@ -1686,7 +1686,7 @@ export default function Home() {
                 <p>
                   在後面的題目中，您會看到兩個因素，請依您的實際經驗判斷：
                   <span className="font-semibold text-slate-900">
-                    哪一個因素對於判斷 Steam 上 RPG 推薦評論是否有效更重要。
+                    哪一個因素對於判斷 Steam 上 RPG 推薦評論是否實用更重要。
                   </span>
                 </p>
               </div>
@@ -2074,7 +2074,7 @@ export default function Home() {
 
             <p className="mt-4 text-sm leading-7 text-slate-700">
               接下來將進入正式 AHP 兩兩比較題。請依照您的實際經驗與直覺判斷，
-              評估各項因素對於 Steam RPG 推薦評論有效性的相對重要程度。
+              評估各項因素對於 Steam RPG 推薦評論實用性的相對重要程度。
             </p>
 
             <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4">
