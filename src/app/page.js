@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 export default function Home() {
-  
+
   const [step, setStep] = useState('welcome');
 
   useEffect(() => {
@@ -16,10 +16,18 @@ export default function Home() {
 
   //#region 基本資料
   //一般資料宣告
-  const [gender, setGender] = useState('');
   const [age, setAge] = useState('');
-  const [region, setRegion] = useState('');
+  const [gender, setGender] = useState('');
   const [education, setEducation] = useState('');
+  const [region, setRegion] = useState('');
+
+  const [filledLv1Questionnaire, setFilledLv1Questionnaire] = useState('');
+  const [steamYears, setSteamYears] = useState('');
+  const [steamGames, setSteamGames] = useState('');
+  const [playedRpg, setPlayedRpg] = useState('');
+  const [usedSteamReviewForPurchase, setUsedSteamReviewForPurchase] = useState('');
+  const [knownSteamFeatures, setKnownSteamFeatures] = useState([]);
+
   const [profileError, setProfileError] = useState('');
   //頁尾聯絡資訊宣告
   const [email, setEmail] = useState('');
@@ -27,46 +35,62 @@ export default function Home() {
   // #endregion
 
   //#region 填答資格
-  const [rpgSteamUse, setRpgSteamUse] = useState('');
-  const [reviewUse, setReviewUse] = useState('');
-  const [featureKnow, setFeatureKnow] = useState('');
   const [eligibilityError, setEligibilityError] = useState('');
+
+  const isExpertRespondent = filledLv1Questionnaire === '是';
+
   const isEligibilityRejected =
-    rpgSteamUse === '否' || reviewUse === '否' || featureKnow === '否';
+    !isExpertRespondent &&
+    (
+      steamYears === '未滿 3 年' ||
+      steamGames === '未滿 10 款' ||
+      playedRpg === '否' ||
+      usedSteamReviewForPurchase === '否' ||
+      knownSteamFeatures.includes('以上皆不了解')
+    );
+
+  const toggleKnownSteamFeature = (feature) => {
+    setKnownSteamFeatures((prev) => {
+      if (prev.includes(feature)) {
+        return prev.filter((item) => item !== feature);
+      }
+
+      if (feature === '以上皆不了解') {
+        return ['以上皆不了解'];
+      }
+
+      return [...prev.filter((item) => item !== '以上皆不了解'), feature];
+    });
+
+    setEligibilityError('');
+  };
   // #endregion
 
   //#region 練習頁 變數宣告
   const [demoSlider, setDemoSlider] = useState(9);
-  const [practiceBC, setPracticeBC] = useState(9);
   // #endregion
 
   // AHP常數宣告--滑桿、是否動過
   const [answers, setAnswers] = useState({
-    lv1: {
-      AB: { value: 9, touched: false },
-      AC: { value: 9, touched: false },
-      BC: { value: 9, touched: false },
-    },
     lv2_1: {
-      AB: { value: 9, touched: false },
-      AC: { value: 9, touched: false },
-      BC: { value: 9, touched: false },
+      AB: { value: null, touched: false },
+      AC: { value: null, touched: false },
+      BC: { value: null, touched: false },
     },
     lv2_2: {
-      AB: { value: 9, touched: false },
-      AC: { value: 9, touched: false },
-      BC: { value: 9, touched: false },
+      AB: { value: null, touched: false },
+      AC: { value: null, touched: false },
+      BC: { value: null, touched: false },
     },
     lv2_3: {
-      AB: { value: 9, touched: false },
-      AC: { value: 9, touched: false },
-      BC: { value: 9, touched: false },
+      AB: { value: null, touched: false },
+      AC: { value: null, touched: false },
+      BC: { value: null, touched: false },
     },
   });
 
   //AHP常數宣告--錯誤訊息
   const [errors, setErrors] = useState({
-    lv1: '',
     lv2_1: '',
     lv2_2: '',
     lv2_3: '',
@@ -210,9 +234,21 @@ export default function Home() {
     ];
   };
 
-  //AHP函式宣告--計算 AHP 權重、CI、CR
-  const calculateAhpResult = (groupKey) => {
-    const matrix = buildAhpMatrix(groupKey);
+  // AHP函式宣告--用指定的三題 value 建立矩陣
+  const buildAhpMatrixFromValues = (abValue, acValue, bcValue) => {
+    const ab = getAhpRatioFromValue(abValue);
+    const ac = getAhpRatioFromValue(acValue);
+    const bc = getAhpRatioFromValue(bcValue);
+
+    return [
+      [1, ab, ac],
+      [1 / ab, 1, bc],
+      [1 / ac, 1 / bc, 1],
+    ];
+  };
+
+  // AHP函式宣告--用矩陣計算 AHP 權重、CI、CR
+  const calculateAhpResultFromMatrix = (matrix) => {
     const n = 3;
     const ri = 0.58;
 
@@ -255,6 +291,73 @@ export default function Home() {
       cr,
     };
   };
+
+  //AHP函式宣告--計算 AHP 權重、CI、CR
+  const calculateAhpResult = (groupKey) => {
+    const matrix = buildAhpMatrix(groupKey);
+    return calculateAhpResultFromMatrix(matrix);
+  };
+
+  // AHP函式宣告--依據已作答的兩題，用 CR 回推第三題可接受範圍
+  const getCrBasedRecommendedRangeForPair = (groupKey, pairKey) => {
+    const groupAnswers = answers[groupKey];
+
+    const ab = groupAnswers.AB.value;
+    const ac = groupAnswers.AC.value;
+    const bc = groupAnswers.BC.value;
+
+    const hasEnoughAnswers =
+      (pairKey === 'AB' && ac !== null && bc !== null) ||
+      (pairKey === 'AC' && ab !== null && bc !== null) ||
+      (pairKey === 'BC' && ab !== null && ac !== null);
+
+    if (!hasEnoughAnswers) {
+      return null;
+    }
+
+    const candidates = ratioOptions.map((option) => {
+      const testAB = pairKey === 'AB' ? option.value : ab;
+      const testAC = pairKey === 'AC' ? option.value : ac;
+      const testBC = pairKey === 'BC' ? option.value : bc;
+
+      const matrix = buildAhpMatrixFromValues(testAB, testAC, testBC);
+      const result = calculateAhpResultFromMatrix(matrix);
+
+      return {
+        value: option.value,
+        label: sliderRatioMap[option.value],
+        cr: result.cr,
+      };
+    });
+
+    const strictCandidates = candidates.filter((item) => item.cr <= 0.1);
+
+    const acceptableCandidates =
+      strictCandidates.length > 0
+        ? strictCandidates
+        : candidates.filter((item) => item.cr <= 0.2);
+
+    if (acceptableCandidates.length === 0) {
+      const bestCandidate = candidates.reduce((best, current) =>
+        current.cr < best.cr ? current : best
+      );
+
+      return {
+        level: 'best',
+        values: [bestCandidate.value],
+        labels: [bestCandidate.label],
+        minCr: bestCandidate.cr,
+      };
+    }
+
+    return {
+      level: strictCandidates.length > 0 ? 'strict' : 'loose',
+      values: acceptableCandidates.map((item) => item.value),
+      labels: acceptableCandidates.map((item) => item.label),
+      minCr: Math.min(...acceptableCandidates.map((item) => item.cr)),
+    };
+  };
+
 
   //AHP函式宣告--取得某一題兩兩比較的方向
   const getComparisonDirection = (value, leftKey, rightKey) => {
@@ -307,12 +410,18 @@ export default function Home() {
 
   //常數宣告--排序題題號
   const [rankings, setRankings] = useState({
-    lv1: ['A', 'B', 'C'],
-    lv2_1: ['A', 'B', 'C'],
-    lv2_2: ['A', 'B', 'C'],
-    lv2_3: ['A', 'B', 'C'],
+    lv2_1: ['', '', ''],
+    lv2_2: ['', '', ''],
+    lv2_3: ['', '', ''],
   });
 
+  // AHP函式宣告--檢查某一組排序題是否完成
+  const isRankingCompleted = (groupKey) => {
+    return (
+      rankings[groupKey].every((item) => item) &&
+      new Set(rankings[groupKey]).size === 3
+    );
+  };
 
   //#region 進度條部分
   //常數宣告--進度條步驟宣告
@@ -320,10 +429,7 @@ export default function Home() {
     'profile',
     'eligibility',
     'tutorial',
-    'tutorialPractice',
     'formalIntro',
-    'lv1Intro',
-    'lv1Done',
     'lv2_1Intro',
     'lv2_1Done',
     'lv2_2Intro',
@@ -332,6 +438,7 @@ export default function Home() {
     'lv2_3Done',
     'finished',
   ];
+
   //函式宣告--進度條渲染
   const renderProgressBar = () => {
     const currentIndex = progressSteps.indexOf(step);
@@ -366,36 +473,15 @@ export default function Home() {
 
   //AHP常數宣告--頁面內容宣告
   const ahpPages = {
-    lv1: {
-      title: '第 1 組：主要構面比較',
-      intro: '接下來，請比較三個主要構面在評估「Steam 上 RPG 推薦評論實用性」時的相對重要程度。',
-      backStep: 'formalIntro',
-      nextStep: 'lv1Done',
-      items: {
-        A: {
-          name: '評論者屬性構面',
-          description: '包含：該遊戲遊玩時數、帳號總擁有遊戲數量、帳號累積評論數',
-        },
-        B: {
-          name: '評論內容構面',
-          description: '包含：評論長度、熵值（用詞多樣性）、評論雙向性(優缺點皆提及)',
-        },
-        C: {
-          name: '使用者互動構面',
-          description: '包含：有幫助票數、有趣票數、回覆（留言）長度',
-        },
-      },
-    },
-
     lv2_1: {
-      title: '第 2 組：評論者屬性構面比較',
+      title: '第 1 組：評論者屬性構面比較',
       intro: '接下來，請比較「評論者屬性構面」中的三個子因素，判斷它們在評估 Steam 上 RPG 推薦評論實用性時的相對重要程度。',
-      backStep: 'lv1Done',
+      backStep: 'formalIntro',
       nextStep: 'lv2_1Done',
       items: {
         A: {
           name: '該遊戲遊玩時數',
-          description: '指評論者在該遊戲上的累積遊玩時數。',
+          description: '指評論者在該 RPG 遊戲上的累積遊玩時數。',
         },
         B: {
           name: '帳號總擁有遊戲數量',
@@ -409,17 +495,17 @@ export default function Home() {
     },
 
     lv2_2: {
-      title: '第 3 組：評論內容構面比較',
+      title: '第 2 組：評論內容構面比較',
       intro: '接下來，請比較「評論內容構面」中的三個子因素，判斷它們在評估 Steam 上 RPG 推薦評論實用性時的相對重要程度。',
       backStep: 'lv2_1Done',
       nextStep: 'lv2_2Done',
       items: {
         A: {
           name: '評論長度',
-          description: '指評論文字內容的篇幅長短。',
+          description: '指評論文字內容的篇幅長短，用以反映評論所提供的資訊量。',
         },
         B: {
-          name: '熵值（用詞多樣性）',
+          name: '評論文字資訊多樣性',
           description: '指評論內容中用詞與資訊表達的多樣程度。',
         },
         C: {
@@ -430,7 +516,7 @@ export default function Home() {
     },
 
     lv2_3: {
-      title: '第 4 組：使用者互動構面比較',
+      title: '第 3 組：使用者互動構面比較',
       intro: '接下來，請比較「使用者互動構面」中的三個子因素，判斷它們在評估 Steam 上 RPG 推薦評論實用性時的相對重要程度。',
       backStep: 'lv2_2Done',
       nextStep: 'lv2_3Done',
@@ -444,7 +530,7 @@ export default function Home() {
           description: '指其他使用者認為該評論有趣的票數。',
         },
         C: {
-          name: '回覆（留言）長度',
+          name: '評論回覆(留言)長度',
           description: '指該評論下方使用者回覆或留言內容的篇幅長短。',
         },
       },
@@ -547,7 +633,7 @@ export default function Home() {
 
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-12">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
           <div className="w-full rounded-2xl bg-white p-4 sm:p-6 lg:p-8 shadow-sm ring-1 ring-slate-200">
             {renderProgressBar()}
             <h2 className="text-2xl font-bold tracking-tight">
@@ -593,20 +679,25 @@ export default function Home() {
 
                           setRankings((prev) => {
                             const currentRanking = [...prev[groupKey]];
-                            const oldItem = currentRanking[rankIndex];
-                            const selectedIndex = currentRanking.indexOf(selectedItem);
+                            const duplicateIndex = currentRanking.indexOf(selectedItem);
+
+                            if (selectedItem && duplicateIndex !== -1) {
+                              currentRanking[duplicateIndex] = '';
+                            }
 
                             currentRanking[rankIndex] = selectedItem;
-                            currentRanking[selectedIndex] = oldItem;
 
                             return {
                               ...prev,
                               [groupKey]: currentRanking,
                             };
                           });
+
                         }}
                         className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-900"
                       >
+                        <option value="">請選擇因素</option>
+
                         {Object.entries(group.items).map(([itemKey, item]) => (
                           <option key={itemKey} value={itemKey}>
                             {itemKey}. {item.name}
@@ -622,12 +713,33 @@ export default function Home() {
 
                   <div className="mt-2 space-y-1">
                     {rankings[groupKey].map((itemKey, index) => (
-                      <p key={itemKey}>
-                        第 {index + 1} 名：{itemKey}. {group.items[itemKey].name}
+                      <p key={index}>
+                        第 {index + 1} 名：
+                        {itemKey ? `${itemKey}. ${group.items[itemKey].name}` : '尚未選擇'}
                       </p>
                     ))}
                   </div>
                 </div>
+
+                {isRankingCompleted(groupKey) && (
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-7 text-amber-800">
+                    <p className="font-semibold text-amber-900">作答建議：</p>
+
+                    <p className="mt-2">
+                      依您剛剛的直覺排序，建議可先比較下列兩個因素，判斷兩者的重要性差距，再依序完成其他成對比較題。
+                    </p>
+
+                    <div className="mt-3 rounded-xl bg-white px-4 py-3 text-amber-900 ring-1 ring-amber-200">
+                      <p>
+                        第 1 名：{rankings[groupKey][0]}. {group.items[rankings[groupKey][0]].name}
+                      </p>
+
+                      <p className="mt-1">
+                        第 3 名：{rankings[groupKey][2]}. {group.items[rankings[groupKey][2]].name}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
               </div>
             </div>
@@ -637,22 +749,23 @@ export default function Home() {
                 const left = group.items[leftKey];
                 const right = group.items[rightKey];
                 const currentValue = answers[groupKey][pairKey].value;
+                const recommendedRange = getCrBasedRecommendedRangeForPair(groupKey, pairKey);
 
                 return (
                   <div
                     key={pairKey}
                     className="w-full rounded-xl border border-slate-200 p-4 sm:p-5"
                   >
-                    <div className="space-y-1 sm:space-y-0 sm:flex sm:items-center sm:gap-2">
-                      <p className="text-sm font-medium text-slate-900">
+                    <div className="flex flex-col items-center justify-center gap-2 text-center sm:flex-row sm:gap-6">
+                      <p className="text-sm font-semibold text-slate-900">
                         {leftKey}. {left.name}
                       </p>
 
-                      <p className="hidden text-xs font-medium uppercase tracking-wide text-slate-500 sm:block">
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                         vs
                       </p>
 
-                      <p className="text-sm font-medium text-slate-900">
+                      <p className="text-sm font-semibold text-slate-900">
                         {rightKey}. {right.name}
                       </p>
                     </div>
@@ -714,18 +827,74 @@ export default function Home() {
                     </div>
 
 
-                    <div className="mt-3 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
-                      <p>
-                        目前選擇：
-                        <span className="font-semibold text-slate-900">
-                          {sliderRatioMap[currentValue]}
-                        </span>
-                      </p>
+                    {recommendedRange !== null && currentValue === null && (
+                      <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-7 text-emerald-800">
+                        <p className="font-medium text-emerald-900">一致性參考：</p>
 
-                      <p className="mt-1 text-slate-500">
-                        {getImportanceText(currentValue, leftKey, rightKey)}
-                      </p>
+                        <p className="mt-1">
+                          依據您已完成的另外兩題比較，若維持這兩題判斷不變，本題可參考的比例範圍為：
+                          <span className="font-semibold text-emerald-900">
+                            {' '}
+                            {recommendedRange.labels.join('、')}
+                          </span>
+                        </p>
+
+                        <p className="mt-1 text-xs leading-6 text-emerald-700">
+                          此提示僅供檢查參考，不代表正確答案；若此範圍與您的直覺判斷差異較大，建議回頭檢查前兩題或本題是否有誤選。
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="mt-3 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
+                      {currentValue === null ? (
+                        <p className="text-slate-500">
+                          尚未選擇，請在上方比例選項中選取一個答案。
+                        </p>
+                      ) : (
+                        <>
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p>
+                                目前選擇：
+                                <span className="font-semibold text-slate-900">
+                                  {sliderRatioMap[currentValue]}
+                                </span>
+                              </p>
+
+                              <p className="mt-1 text-slate-500">
+                                {getImportanceText(currentValue, leftKey, rightKey)}
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAnswers((prev) => ({
+                                  ...prev,
+                                  [groupKey]: {
+                                    ...prev[groupKey],
+                                    [pairKey]: {
+                                      value: null,
+                                      touched: false,
+                                    },
+                                  },
+                                }));
+
+                                setErrors((prev) => ({
+                                  ...prev,
+                                  [groupKey]: '',
+                                }));
+                              }}
+                              className="shrink-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                            >
+                              清除本題選擇
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
+
+
                   </div>
                 );
               })}
@@ -749,10 +918,18 @@ export default function Home() {
 
               <button
                 onClick={() => {
+                  if (!isRankingCompleted(groupKey)) {
+                    setErrors((prev) => ({
+                      ...prev,
+                      [groupKey]: '請先完成排序題後，再進入下一步。',
+                    }));
+                    return;
+                  }
+
                   if (!isGroupCompleted(groupKey)) {
                     setErrors((prev) => ({
                       ...prev,
-                      [groupKey]: '請先完成三組比較後，再進入下一步。',
+                      [groupKey]: '請先完成本頁三題成對比較後，再進入下一步。',
                     }));
                     return;
                   }
@@ -772,34 +949,26 @@ export default function Home() {
 
   //AHP常數宣告--完成頁面內容
   const donePages = {
-    lv1Done: {
-      groupKey: 'lv1',
-      title: '第 1 組已完成',
-      description: '您已完成第 1 組主要構面的兩兩比較。',
-      backStep: 'lv1Intro',
-      nextStep: 'lv2_1Intro',
-      nextText: '確認並進入下一頁',
-    },
     lv2_1Done: {
       groupKey: 'lv2_1',
-      title: '第 2 組已完成',
-      description: '您已完成第 2 組評論者屬性構面中的子因素比較。',
+      title: '第 1 組已完成',
+      description: '您已完成第 1 組評論者屬性構面中的子因素比較。',
       backStep: 'lv2_1Intro',
       nextStep: 'lv2_2Intro',
       nextText: '確認並進入下一頁',
     },
     lv2_2Done: {
       groupKey: 'lv2_2',
-      title: '第 3 組已完成',
-      description: '您已完成第 3 組評論內容構面中的子因素比較。',
+      title: '第 2 組已完成',
+      description: '您已完成第 2 組評論內容構面中的子因素比較。',
       backStep: 'lv2_2Intro',
       nextStep: 'lv2_3Intro',
       nextText: '確認並進入下一頁',
     },
     lv2_3Done: {
       groupKey: 'lv2_3',
-      title: '第 4 組已完成',
-      description: '您已完成第 4 組使用者互動構面中的子因素比較。',
+      title: '第 3 組已完成',
+      description: '您已完成第 3 組使用者互動構面中的子因素比較。',
       backStep: 'lv2_3Intro',
       nextStep: 'finished',
       nextText: '完成問卷',
@@ -812,7 +981,7 @@ export default function Home() {
 
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-12">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
           <div className="w-full rounded-2xl bg-white p-4 sm:p-6 lg:p-8 shadow-sm ring-1 ring-slate-200">
             {renderProgressBar()}
 
@@ -837,8 +1006,11 @@ export default function Home() {
 
                   <div className="mt-2 space-y-1">
                     {rankings[groupKey].map((itemKey, index) => (
-                      <p key={itemKey}>
-                        第 {index + 1} 名：{itemKey}. {ahpPages[groupKey].items[itemKey].name}
+                      <p key={index}>
+                        第 {index + 1} 名：
+                        {itemKey
+                          ? `${itemKey}. ${ahpPages[groupKey].items[itemKey].name}`
+                          : '尚未選擇'}
                       </p>
                     ))}
                   </div>
@@ -909,7 +1081,7 @@ export default function Home() {
 
   //AHP函式宣告--整理AHP結果以便送出
   const buildAhpResults = () => {
-    const groupKeys = ['lv1', 'lv2_1', 'lv2_2', 'lv2_3'];
+    const groupKeys = ['lv2_1', 'lv2_2', 'lv2_3'];
 
     return groupKeys.reduce((result, groupKey) => {
       const ahpResult = calculateAhpResult(groupKey);
@@ -945,12 +1117,15 @@ export default function Home() {
         age,
         region,
         education,
+        filledLv1Questionnaire,
       },
 
       eligibility: {
-        rpgSteamUse,
-        reviewUse,
-        featureKnow,
+        steamYears,
+        steamGames,
+        playedRpg,
+        usedSteamReviewForPurchase,
+        knownSteamFeatures,
       },
 
       rankings,
@@ -1004,12 +1179,14 @@ export default function Home() {
     setEducation('');
     setProfileError('');
 
-    setRpgSteamUse('');
-    setReviewUse('');
-    setFeatureKnow('');
+    setFilledLv1Questionnaire('');
+    setSteamYears('');
+    setSteamGames('');
+    setPlayedRpg('');
+    setUsedSteamReviewForPurchase('');
+    setKnownSteamFeatures([]);
     setEligibilityError('');
 
-    setPracticeBC(9);
     setDemoSlider(9);
 
     setEmail('');
@@ -1019,37 +1196,30 @@ export default function Home() {
     setSubmitError('');
 
     setAnswers({
-      lv1: {
-        AB: { value: 9, touched: false },
-        AC: { value: 9, touched: false },
-        BC: { value: 9, touched: false },
-      },
       lv2_1: {
-        AB: { value: 9, touched: false },
-        AC: { value: 9, touched: false },
-        BC: { value: 9, touched: false },
+        AB: { value: null, touched: false },
+        AC: { value: null, touched: false },
+        BC: { value: null, touched: false },
       },
       lv2_2: {
-        AB: { value: 9, touched: false },
-        AC: { value: 9, touched: false },
-        BC: { value: 9, touched: false },
+        AB: { value: null, touched: false },
+        AC: { value: null, touched: false },
+        BC: { value: null, touched: false },
       },
       lv2_3: {
-        AB: { value: 9, touched: false },
-        AC: { value: 9, touched: false },
-        BC: { value: 9, touched: false },
+        AB: { value: null, touched: false },
+        AC: { value: null, touched: false },
+        BC: { value: null, touched: false },
       },
     });
 
     setRankings({
-      lv1: ['A', 'B', 'C'],
-      lv2_1: ['A', 'B', 'C'],
-      lv2_2: ['A', 'B', 'C'],
-      lv2_3: ['A', 'B', 'C'],
+      lv2_1: ['', '', ''],
+      lv2_2: ['', '', ''],
+      lv2_3: ['', '', ''],
     });
 
     setErrors({
-      lv1: '',
       lv2_1: '',
       lv2_2: '',
       lv2_3: '',
@@ -1077,7 +1247,7 @@ export default function Home() {
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
                 <p className="font-semibold text-slate-900">
-                  一、研究目的與名詞說明
+                  一、核心概念說明
                 </p>
                 <p className="mt-3">
                   本研究所稱之「評論實用性」，係指評論
@@ -1087,7 +1257,7 @@ export default function Home() {
                   。
                 </p>
 
-                <p className="mt-2">
+                <p className="mt-3">
                   換言之，一則評論
                   <span className="font-semibold text-slate-900">
                     是否能幫助玩家更快理解遊戲內容，並在購買前做出較可靠的判斷
@@ -1098,28 +1268,45 @@ export default function Home() {
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
                 <p className="font-semibold text-slate-900">
-                  二、填答說明（成對比較問卷型式）
+                  二、填答資格
                 </p>
-                <p className="mt-3">
-                  問卷中會請您比較兩項因素，例如 A 與 B，請選出您認為哪一項對判斷評論是否實用更重要，以及重要程度。
-                </p>
+
+                <div className="mt-3 space-y-3 text-slate-700">
+                  <div>
+                    <ul className="mt-2 list-disc space-y-1 pl-5">
+                      <li>年滿 18 歲。</li>
+                      <li>具 Steam 使用經驗。</li>
+                      <li>熟悉 Steam 評論功能。</li>
+                      <li>曾參考 Steam 評論進行遊戲購買判斷。</li>
+                      <li>具有 RPG（角色扮演遊戲）遊玩經驗。</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
                 <p className="font-semibold text-slate-900">
-                  三、填答資格與時間
+                  三、填答說明
                 </p>
-                <div className="mt-3 space-y-2">
+
+                <div className="mt-3 space-y-3 text-slate-700">
                   <p>
-                    <span className="font-medium text-slate-900">填答資格：</span>
-                    年滿 18 歲，且具 Steam 使用經驗者。
+                    本問卷共分為兩部分：
                   </p>
+
+                  <ul className="list-disc space-y-1 pl-5">
+                    <li>第一部分：基本背景資料（匿名，約 3 分鐘）。</li>
+                    <li>第二部分：AHP 成對比較題，共 9 題（約 12 分鐘）。</li>
+                  </ul>
+
                   <p>
-                    <span className="font-medium text-slate-900">填答時間：</span>
-                    約 15 分鐘。
+                    填答總時間：約 <span className="font-semibold text-slate-900">15 分鐘</span>。
+                    正式題目採 <span className="font-semibold text-slate-900">單選方式</span> 作答。
                   </p>
                 </div>
               </div>
+
+
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
                 <p className="font-semibold text-slate-900">
@@ -1157,7 +1344,7 @@ export default function Home() {
                   若您對本研究或問卷內容有任何疑問，歡迎聯絡研究者：
                 </p>
                 <div className="mt-3 space-y-1">
-                  <p>指導教授：吳帆 博士</p>
+                  <p>指導教授：吳帆 博士、謝穎佳 博士 </p>
                   <p>研究生：王煜凱</p>
                   <p>聯絡信箱：jason.763226@gmail.com</p>
                 </div>
@@ -1184,55 +1371,20 @@ export default function Home() {
         <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
           <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
             {renderProgressBar()}
-            <h2 className="text-2xl font-bold tracking-tight">基本資料頁</h2>
+            <h2 className="text-2xl font-bold tracking-tight">基本資料與遊戲背景</h2>
 
             <p className="mt-4 text-base leading-7 text-slate-700">
-              請先填寫基本資料。
+              以下題目用於了解您的基本背景，並確認您的填答資格。請依實際情況誠實作答。
             </p>
 
             <div className="mt-6 space-y-4">
-              <div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-5">
                 <label className="mb-3 block text-sm lg:text-base font-medium text-slate-900">
-                  生理性別
+                  Q1. 您的年齡
                 </label>
 
-                <div className="space-y-2 text-sm lg:text-base text-slate-700">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="gender"
-                      value="生理男"
-                      checked={gender === '生理男'}
-                      onChange={(e) => {
-                        setGender(e.target.value);
-                        setProfileError('');
-                      }}
-                    />
-                    生理男
-                  </label>
-
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="gender"
-                      value="生理女"
-                      checked={gender === '生理女'}
-                      onChange={(e) => {
-                        setGender(e.target.value);
-                        setProfileError('');
-                      }}
-                    />
-                    生理女
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-3 block text-sm lg:text-base font-medium text-slate-900">
-                  年齡
-                </label>
-
-                <div className="space-y-2 text-sm lg:text-base text-slate-700">
+                <div className="mt-4 space-y-3 text-sm lg:text-base text-slate-700">
                   <label className="flex items-center gap-2">
                     <input
                       type="radio"
@@ -1291,12 +1443,127 @@ export default function Home() {
                 </div>
               </div>
 
-              <div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-5">
                 <label className="mb-3 block text-sm lg:text-base font-medium text-slate-900">
-                  所在地區
+                  Q2. 您的性別
                 </label>
 
-                <div className="space-y-2 text-sm lg:text-base text-slate-700">
+                <div className="mt-4 space-y-3 text-sm lg:text-base text-slate-700">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="gender"
+                      value="生理男"
+                      checked={gender === '生理男'}
+                      onChange={(e) => {
+                        setGender(e.target.value);
+                        setProfileError('');
+                      }}
+                    />
+                    生理男
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="gender"
+                      value="生理女"
+                      checked={gender === '生理女'}
+                      onChange={(e) => {
+                        setGender(e.target.value);
+                        setProfileError('');
+                      }}
+                    />
+                    生理女
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="gender"
+                      value="不願透露"
+                      checked={gender === '不願透露'}
+                      onChange={(e) => {
+                        setGender(e.target.value);
+                        setProfileError('');
+                      }}
+                    />
+                    不願透露
+                  </label>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-5">
+                <label className="mb-3 block text-sm lg:text-base font-medium text-slate-900">
+                  Q3. 您的最高學歷
+                </label>
+
+                <div className="mt-4 space-y-3 text-sm lg:text-base text-slate-700">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="education"
+                      value="高中職（含）以下"
+                      checked={education === '高中職（含）以下'}
+                      onChange={(e) => {
+                        setEducation(e.target.value);
+                        setProfileError('');
+                      }}
+                    />
+                    高中職（含）以下
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="education"
+                      value="大學／專科"
+                      checked={education === '大學／專科'}
+                      onChange={(e) => {
+                        setEducation(e.target.value);
+                        setProfileError('');
+                      }}
+                    />
+                    大學／專科
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="education"
+                      value="碩士"
+                      checked={education === '碩士'}
+                      onChange={(e) => {
+                        setEducation(e.target.value);
+                        setProfileError('');
+                      }}
+                    />
+                    碩士
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="education"
+                      value="博士"
+                      checked={education === '博士'}
+                      onChange={(e) => {
+                        setEducation(e.target.value);
+                        setProfileError('');
+                      }}
+                    />
+                    博士
+                  </label>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-5">
+                <label className="mb-3 block text-sm lg:text-base font-medium text-slate-900">
+                  Q4. 您目前居住地
+                </label>
+
+                <div className="mt-4 space-y-3 text-sm lg:text-base text-slate-700">
                   <label className="flex items-center gap-2">
                     <input
                       type="radio"
@@ -1355,66 +1622,42 @@ export default function Home() {
                 </div>
               </div>
 
-              <div>
-                <label className="mb-3 block text-sm lg:text-base font-medium text-slate-900">
-                  最高學歷
-                </label>
+              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-5">
+                <p className="text-sm lg:text-base font-medium text-slate-900">
+                  Q5. 您先前是否曾填寫過本研究的「主要構面成對比較」問卷？
+                </p>
 
-                <div className="space-y-2 text-sm lg:text-base text-slate-700">
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  指比較「評論者屬性、評論內容、使用者互動」三個主要構面的問卷。本題僅作為研究背景資料，不影響填答資格。
+                </p>
+
+                <div className="mt-4 space-y-3 text-sm lg:text-base text-slate-700">
                   <label className="flex items-center gap-2">
                     <input
                       type="radio"
-                      name="education"
-                      value="國中以下"
-                      checked={education === '國中以下'}
+                      name="filledLv1Questionnaire"
+                      value="是"
+                      checked={filledLv1Questionnaire === '是'}
                       onChange={(e) => {
-                        setEducation(e.target.value);
+                        setFilledLv1Questionnaire(e.target.value);
                         setProfileError('');
                       }}
                     />
-                    國中以下
+                    是，曾填寫過
                   </label>
 
                   <label className="flex items-center gap-2">
                     <input
                       type="radio"
-                      name="education"
-                      value="高中職"
-                      checked={education === '高中職'}
+                      name="filledLv1Questionnaire"
+                      value="否"
+                      checked={filledLv1Questionnaire === '否'}
                       onChange={(e) => {
-                        setEducation(e.target.value);
+                        setFilledLv1Questionnaire(e.target.value);
                         setProfileError('');
                       }}
                     />
-                    高中職
-                  </label>
-
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="education"
-                      value="大專／大學"
-                      checked={education === '大專／大學'}
-                      onChange={(e) => {
-                        setEducation(e.target.value);
-                        setProfileError('');
-                      }}
-                    />
-                    大專／大學
-                  </label>
-
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="education"
-                      value="研究所以上"
-                      checked={education === '研究所以上'}
-                      onChange={(e) => {
-                        setEducation(e.target.value);
-                        setProfileError('');
-                      }}
-                    />
-                    研究所以上
+                    否，未曾填寫過
                   </label>
                 </div>
               </div>
@@ -1438,8 +1681,8 @@ export default function Home() {
 
               <button
                 onClick={() => {
-                  if (!gender || !age || !region || !education) {
-                    setProfileError('請先完成所有基本資料後，再進入下一步。');
+                  if (!gender || !age || !region || !education || !filledLv1Questionnaire) {
+                    setProfileError('請先完成所有基本資料與背景後，再進入下一步。');
                     return;
                   }
 
@@ -1463,88 +1706,235 @@ export default function Home() {
         <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
           <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
             {renderProgressBar()}
-            <h2 className="text-2xl font-bold tracking-tight">填答條件確認</h2>
+            <h2 className="text-2xl font-bold tracking-tight">Steam 使用情況確認</h2>
 
             <p className="mt-4 text-base leading-7 text-slate-700">
-              請先確認您符合本研究的填答條件。
+              以下為使用情況確認。請依實際情況誠實作答；不符合資格者填答結果將無法納入分析，感謝您的參與。
             </p>
 
             <div className="mt-6 space-y-4">
-              <div className="rounded-xl border border-slate-200 p-4">
+
+              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-5">
                 <p className="text-sm lg:text-base font-medium text-slate-900">
-                  1. 過去一年內，您是否曾接觸 RPG 類型遊戲，且曾使用 Steam 平台瀏覽或購買遊戲？
+                  Q6. 您的 Steam 帳號已使用多少年？
                 </p>
 
-                <div className="mt-3 space-y-2 text-sm lg:text-base text-slate-700">
+                <div className="mt-4 space-y-3 text-sm lg:text-base text-slate-700">
                   <label className="flex items-center gap-2">
                     <input
                       type="radio"
-                      name="rpgSteam"
-                      value="是"
-                      checked={rpgSteamUse === '是'}
+                      name="steamYears"
+                      value="未滿 3 年"
+                      checked={steamYears === '未滿 3 年'}
                       onChange={(e) => {
-                        setRpgSteamUse(e.target.value);
+                        setSteamYears(e.target.value);
                         setEligibilityError('');
                       }}
                     />
-                    是
+                    未滿 3 年
                   </label>
 
                   <label className="flex items-center gap-2">
                     <input
                       type="radio"
-                      name="rpgSteam"
-                      value="否"
-                      checked={rpgSteamUse === '否'}
+                      name="steamYears"
+                      value="3 年以上，未滿 5 年"
+                      checked={steamYears === '3 年以上，未滿 5 年'}
                       onChange={(e) => {
-                        setRpgSteamUse(e.target.value);
+                        setSteamYears(e.target.value);
                         setEligibilityError('');
                       }}
                     />
-                    否
+                    3 年以上，未滿 5 年
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="steamYears"
+                      value="5 年以上，未滿 8 年"
+                      checked={steamYears === '5 年以上，未滿 8 年'}
+                      onChange={(e) => {
+                        setSteamYears(e.target.value);
+                        setEligibilityError('');
+                      }}
+                    />
+                    5 年以上，未滿 8 年
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="steamYears"
+                      value="8 年以上"
+                      checked={steamYears === '8 年以上'}
+                      onChange={(e) => {
+                        setSteamYears(e.target.value);
+                        setEligibilityError('');
+                      }}
+                    />
+                    8 年以上
                   </label>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-5">
                 <p className="text-sm lg:text-base font-medium text-slate-900">
-                  2. 您是否曾閱讀 Steam 上的遊戲評論，並將其作為是否購買遊戲的參考？
+                  Q7. 您的 Steam 帳號目前擁有多少款遊戲？
                 </p>
 
-                <div className="mt-3 space-y-2 text-sm lg:text-base text-slate-700">
+                <div className="mt-4 space-y-3 text-sm lg:text-base text-slate-700">
                   <label className="flex items-center gap-2">
                     <input
                       type="radio"
-                      name="reviewUse"
-                      value="是"
-                      checked={reviewUse === '是'}
+                      name="steamGames"
+                      value="未滿 10 款"
+                      checked={steamGames === '未滿 10 款'}
                       onChange={(e) => {
-                        setReviewUse(e.target.value);
+                        setSteamGames(e.target.value);
                         setEligibilityError('');
                       }}
                     />
-                    是
+                    未滿 10 款
                   </label>
 
                   <label className="flex items-center gap-2">
                     <input
                       type="radio"
-                      name="reviewUse"
-                      value="否"
-                      checked={reviewUse === '否'}
+                      name="steamGames"
+                      value="10–19 款"
+                      checked={steamGames === '10–19 款'}
                       onChange={(e) => {
-                        setReviewUse(e.target.value);
+                        setSteamGames(e.target.value);
                         setEligibilityError('');
                       }}
                     />
-                    否
+                    10–19 款
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="steamGames"
+                      value="20–49 款"
+                      checked={steamGames === '20–49 款'}
+                      onChange={(e) => {
+                        setSteamGames(e.target.value);
+                        setEligibilityError('');
+                      }}
+                    />
+                    20–49 款
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="steamGames"
+                      value="50–99 款"
+                      checked={steamGames === '50–99 款'}
+                      onChange={(e) => {
+                        setSteamGames(e.target.value);
+                        setEligibilityError('');
+                      }}
+                    />
+                    50–99 款
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="steamGames"
+                      value="100 款以上"
+                      checked={steamGames === '100 款以上'}
+                      onChange={(e) => {
+                        setSteamGames(e.target.value);
+                        setEligibilityError('');
+                      }}
+                    />
+                    100 款以上
                   </label>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-5">
                 <p className="text-sm lg:text-base font-medium text-slate-900">
-                  3. 您是否了解 Steam 評論區的常見功能，例如「推薦／不推薦」、「有幫助」或「有趣」等互動機制？
+                  Q8. 過去一年內，您是否曾遊玩 RPG（角色扮演遊戲）類型的遊戲？
+                </p>
+
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  例如：Final Fantasy、女神異聞錄、艾爾登法環、博德之門等。
+                </p>
+
+                <div className="mt-4 space-y-3 text-sm lg:text-base text-slate-700">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="playedRpg"
+                      value="是"
+                      checked={playedRpg === '是'}
+                      onChange={(e) => {
+                        setPlayedRpg(e.target.value);
+                        setEligibilityError('');
+                      }}
+                    />
+                    是，曾遊玩過 RPG
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="playedRpg"
+                      value="否"
+                      checked={playedRpg === '否'}
+                      onChange={(e) => {
+                        setPlayedRpg(e.target.value);
+                        setEligibilityError('');
+                      }}
+                    />
+                    否，過去一年內未曾遊玩過 RPG
+                  </label>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-5">
+                <p className="text-sm lg:text-base font-medium text-slate-900">
+                  Q9. 您是否曾閱讀 Steam 評論，並以此作為決定是否購買某款遊戲的參考之一？
+                </p>
+
+                <div className="mt-4 space-y-3 text-sm lg:text-base text-slate-700">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="usedSteamReviewForPurchase"
+                      value="是"
+                      checked={usedSteamReviewForPurchase === '是'}
+                      onChange={(e) => {
+                        setUsedSteamReviewForPurchase(e.target.value);
+                        setEligibilityError('');
+                      }}
+                    />
+                    是，曾將 Steam 評論做為購買的參考之一
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="usedSteamReviewForPurchase"
+                      value="否"
+                      checked={usedSteamReviewForPurchase === '否'}
+                      onChange={(e) => {
+                        setUsedSteamReviewForPurchase(e.target.value);
+                        setEligibilityError('');
+                      }}
+                    />
+                    否，購買時從未參考過 Steam 評論
+                  </label>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-5">
+                <p className="text-sm lg:text-base font-medium text-slate-900">
+                  Q10. 您了解以下 Steam 評論機制嗎？（請勾選所有您知道的）
                 </p>
 
                 <img
@@ -1559,42 +1949,61 @@ export default function Home() {
                 />
 
                 <p className="mt-2 text-xs leading-5 text-slate-500">
-                  圖片取自Steam官網
+                  圖片取自 Steam 官網
                 </p>
 
-                <div className="mt-3 space-y-2 text-sm lg:text-base text-slate-700">
+                <div className="mt-4 space-y-3 text-sm lg:text-base text-slate-700">
                   <label className="flex items-center gap-2">
                     <input
-                      type="radio"
-                      name="featureKnow"
-                      value="是"
-                      checked={featureKnow === '是'}
-                      onChange={(e) => {
-                        setFeatureKnow(e.target.value);
-                        setEligibilityError('');
-                      }}
+                      type="checkbox"
+                      checked={knownSteamFeatures.includes('推薦／不推薦')}
+                      onChange={() => toggleKnownSteamFeature('推薦／不推薦')}
                     />
-                    是
+                    推薦／不推薦（評論立場）
                   </label>
 
                   <label className="flex items-center gap-2">
                     <input
-                      type="radio"
-                      name="featureKnow"
-                      value="否"
-                      checked={featureKnow === '否'}
-                      onChange={(e) => {
-                        setFeatureKnow(e.target.value);
-                        setEligibilityError('');
-                      }}
+                      type="checkbox"
+                      checked={knownSteamFeatures.includes('有幫助票')}
+                      onChange={() => toggleKnownSteamFeature('有幫助票')}
                     />
-                    否
+                    「有幫助」票（Helpful votes）
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={knownSteamFeatures.includes('有趣票')}
+                      onChange={() => toggleKnownSteamFeature('有趣票')}
+                    />
+                    「有趣」票（Funny votes）
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={knownSteamFeatures.includes('評論回覆留言功能')}
+                      onChange={() => toggleKnownSteamFeature('評論回覆留言功能')}
+                    />
+                    評論下方的回覆留言功能
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={knownSteamFeatures.includes('以上皆不了解')}
+                      onChange={() => toggleKnownSteamFeature('以上皆不了解')}
+                    />
+                    以上皆不了解
                   </label>
                 </div>
               </div>
 
+
+
               {isEligibilityRejected && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm leading-7 text-red-700">
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm leading-7 text-red-700">
                   由於本研究對填答對象設有特定條件，您目前不在本次研究的適用範圍內。
                 </div>
               )}
@@ -1604,10 +2013,7 @@ export default function Home() {
                   {eligibilityError}
                 </div>
               )}
-
             </div>
-
-
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <button
@@ -1619,8 +2025,15 @@ export default function Home() {
 
               <button
                 onClick={() => {
-                  if (!rpgSteamUse || !reviewUse || !featureKnow) {
-                    setEligibilityError('請先完成三題填答條件確認後，再進入下一步。');
+                  if (
+                    !filledLv1Questionnaire ||
+                    !steamYears ||
+                    !steamGames ||
+                    !playedRpg ||
+                    !usedSteamReviewForPurchase ||
+                    knownSteamFeatures.length === 0
+                  ) {
+                    setEligibilityError('請先完成 Q5–Q10 後，再進入下一步。');
                     return;
                   }
 
@@ -1649,14 +2062,14 @@ export default function Home() {
       <main className="min-h-screen bg-slate-50 text-slate-900">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
           <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
-            <h2 className="text-2xl font-bold tracking-tight">感謝您的填答</h2>
+            <h2 className="text-2xl font-bold tracking-tight">感謝您的參與</h2>
 
             <p className="mt-4 text-base leading-7 text-slate-700">
-              由於本研究對填答對象設有特定條件，您目前不在本次研究的適用範圍內，因此問卷到此結束。
+              感謝您撥空填答。由於本研究對填答對象設有特定條件，您目前的填答條件不符合本次研究分析範圍，因此問卷到此結束。
             </p>
 
             <p className="mt-4 text-base leading-7 text-slate-700">
-              仍誠摯感謝您的參與與協助。
+              仍誠摯感謝您的時間與協助。
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
@@ -1676,18 +2089,24 @@ export default function Home() {
   if (step === 'tutorial') {
     return (
       <main className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-12">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
           <div className="w-full rounded-2xl bg-white p-4 sm:p-6 lg:p-8 shadow-sm ring-1 ring-slate-200">
             {renderProgressBar()}
-            <h2 className="text-2xl font-bold tracking-tight">問卷作答說明</h2>
+            <h2 className="text-2xl font-bold tracking-tight">
+              AHP 成對比較 - 填答說明
+            </h2>
 
             <div className="mt-6 space-y-6 text-sm leading-7 text-slate-700">
-              <div className="space-y-3">
-                <p>
-                  在後面的題目中，您會看到兩個因素，請依您的實際經驗判斷：
+              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-5">
+                <p className="font-semibold text-slate-900">什麼是「成對比較」？</p>
+
+                <p className="mt-2">
+                  接下來每一組題目會請您在兩個評估因素之間做出判斷：
+                  在評估一則 Steam RPG 推薦評論的實用性時，哪一個因素對
                   <span className="font-semibold text-slate-900">
-                    哪一個因素對於判斷 Steam 上 RPG 推薦評論是否實用更重要。
+                    「協助潛在玩家理解遊戲內容、品質，並形成購買或遊玩決策」
                   </span>
+                  更重要？重要多少？
                 </p>
               </div>
 
@@ -1701,23 +2120,67 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="rounded-xl bg-slate-100 px-4 py-4">
-                <p className="font-medium text-slate-900">作答方式如下：</p>
-                <div className="mt-3 space-y-1">
-                  <p>• 左側 9–2 代表前者較重要</p>
-                  <p>• 中間 1 代表兩者一樣重要</p>
-                  <p>• 右側 2–9 代表後者較重要</p>
-                  <p>• 選得越靠近兩側，代表您認為兩者的重要差距越大</p>
+              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-5">
+                <p className="font-semibold text-slate-900">
+                  評分尺度說明（Saaty 1–9 尺度）
+                </p>
+
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-300 text-slate-900">
+                        <th className="whitespace-nowrap py-2 pr-4 font-semibold">數字</th>
+                        <th className="whitespace-nowrap py-2 pr-4 font-semibold">意義</th>
+                        <th className="py-2 font-semibold">說明</th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="text-slate-700">
+                      <tr className="border-b border-slate-200">
+                        <td className="py-2 pr-4 font-medium">1</td>
+                        <td className="py-2 pr-4">同等重要</td>
+                        <td className="py-2">兩個因素對評論實用性的影響程度相同</td>
+                      </tr>
+
+                      <tr className="border-b border-slate-200">
+                        <td className="py-2 pr-4 font-medium">3</td>
+                        <td className="py-2 pr-4">稍微重要</td>
+                        <td className="py-2">左（右）側因素稍微更重要，差異存在但不顯著</td>
+                      </tr>
+
+                      <tr className="border-b border-slate-200">
+                        <td className="py-2 pr-4 font-medium">5</td>
+                        <td className="py-2 pr-4">頗為重要</td>
+                        <td className="py-2">左（右）側因素頗為更重要，差異清楚</td>
+                      </tr>
+
+                      <tr className="border-b border-slate-200">
+                        <td className="py-2 pr-4 font-medium">7</td>
+                        <td className="py-2 pr-4">極為重要</td>
+                        <td className="py-2">左（右）側因素極為重要，另一因素相形失色</td>
+                      </tr>
+
+                      <tr className="border-b border-slate-200">
+                        <td className="py-2 pr-4 font-medium">9</td>
+                        <td className="py-2 pr-4">絕對重要</td>
+                        <td className="py-2">左（右）側因素幾乎是決定性因素</td>
+                      </tr>
+
+                      <tr>
+                        <td className="py-2 pr-4 font-medium">2、4、6、8</td>
+                        <td className="py-2 pr-4">中間值</td>
+                        <td className="py-2">介於相鄰兩個判斷之間的程度</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 px-4 py-4">
-                <p className="font-medium text-slate-900">
-                  本問卷中，17 個選項分別對應兩側內容的重要程度比例：
-                </p>
+              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-5">
+                <p className="font-semibold text-slate-900">作答方式</p>
 
-                <p className="mt-3 break-words text-slate-700">
-                  9:1、8:1、7:1、6:1、5:1、4:1、3:1、2:1、1:1、1:2、1:3、1:4、1:5、1:6、1:7、1:8、1:9
+                <p className="mt-2 text-slate-700">
+                  每道題請在 17 個比例選項中選取一個。
                 </p>
 
                 <div className="mt-5 -mx-2 rounded-xl bg-slate-100 px-2 py-4 sm:mx-0 sm:px-4">
@@ -1725,9 +2188,10 @@ export default function Home() {
                     您可以先試著選擇下方比例選項，熟悉比例變化：
                   </p>
 
-                  <div className="mt-4 flex items-center justify-between gap-3 text-sm text-slate-700">
-                    <div className="font-medium">左側因素</div>
-                    <div className="text-right font-medium">右側因素</div>
+                  <div className="mt-4 text-center text-sm font-medium text-slate-700">
+                    <span>左側因素</span>
+                    <span className="mx-4 text-xs uppercase tracking-wide text-slate-400">vs</span>
+                    <span>右側因素</span>
                   </div>
 
                   <div
@@ -1786,30 +2250,29 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 px-4 py-4">
-                <p className="font-medium text-slate-900">例如：</p>
-                <div className="mt-3 space-y-2">
+
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-red-800">
+                <p className="font-semibold text-red-900">注意事項</p>
+
+                <div className="mt-2 space-y-2">
                   <p>
-                    若您選擇右側的 <span className="font-semibold">7</span>，表示您認為
-                    <span className="font-semibold">右側因素</span>
-                    相較於
-                    <span className="font-semibold">左側因素</span>
-                    更重要。
+                    • 本問卷每一組皆包含三題成對比較，三題之間會形成一個簡單的判斷關係。
                   </p>
+
                   <p>
-                    在本問卷的換算中，右側的 <span className="font-semibold">7</span> 對應的比例為
-                    <span className="font-semibold"> 1:7 </span>
-                    ，表示右側因素相較於左側因素極為重要。
+                    • 若系統偵測到結果前後不完全一致，
+                    <span className="font-semibold text-red-900">
+                      可能是因為出現上述判斷方向不一致的情形，或是重要程度倍數差距過大
+                    </span>，
+                    您可以回頭確認三題比較是否符合您的真實判斷。
+                  </p>
+
+                  <p>
+                    • 選「1（同等重要）」是可以接受的，但請盡量依您的實際經驗做出判斷。
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4">
-                <p className="font-medium text-emerald-900">作答前提醒：</p>
-                <p className="mt-2 text-emerald-800">
-                  本問卷中的比例選項具有比例意義，請不要只判斷左右方向，也請同時考慮兩者之間的重要倍數差距。
-                </p>
-              </div>
             </div>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
@@ -1821,240 +2284,10 @@ export default function Home() {
               </button>
 
               <button
-                onClick={() => setStep('tutorialPractice')}
+                onClick={() => setStep('formalIntro')}
                 className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
               >
-                下一步：進入練習題
-              </button>
-            </div>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  if (step === 'tutorialPractice') {
-    return (
-      <main className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-12">
-          <div className="w-full rounded-2xl bg-white p-4 sm:p-6 lg:p-8 shadow-sm ring-1 ring-slate-200">
-            {renderProgressBar()}
-            <h2 className="text-2xl font-bold tracking-tight">練習題</h2>
-
-            <div className="mt-6 space-y-4 text-sm leading-7 text-slate-700">
-              <p>
-                以下練習題僅用於確認您是否理解作答方式，不會影響正式作答結果。
-              </p>
-
-              <p>
-                假設您正在判斷一部電影是否「精彩」，並以下列三項因素作為評估依據：
-              </p>
-
-              <div className="rounded-xl bg-slate-100 px-4 py-4">
-                <p>A. 劇情有深度</p>
-                <p>B. 畫面表現出眾</p>
-                <p>C. 音樂動聽</p>
-              </div>
-
-              <p>
-                接下來，您將看到其中兩組比較結果已先提供。
-                請您依據這些比較關係，判斷最後一組因素之間何者較重要，並選擇您認為較合理的比例。
-              </p>
-            </div>
-
-            <div className="mt-8 space-y-4">
-              <div className="rounded-xl border border-slate-200 p-3 sm:p-4">
-                <p className="text-sm font-medium text-slate-900">
-                  <span className="block">已知比較 1：</span>
-                  <span className="mt-1 block">A 劇情有深度 vs B 畫面表現出眾</span>
-                </p>
-                <p className="mt-2 text-sm text-slate-700">
-                  A 比 B 稍微重要 (對應左側3)
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 p-3 sm:p-4">
-                <p className="text-sm font-medium text-slate-900">
-                  <span className="block">已知比較 2：</span>
-                  <span className="mt-1 block">A 劇情有深度 vs C 音樂動聽</span>
-                </p>
-                <p className="mt-2 text-sm text-slate-700">
-                  A 比 C 極為重要 (對應左側7)
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 p-3 sm:p-4">
-                <p className="text-sm font-medium text-slate-900">
-                  <span className="block">請完成比較 3：</span>
-                  <span className="mt-1 block">B 畫面表現出眾 vs C 音樂動聽</span>
-                </p>
-
-                <div className="mt-4 flex items-center justify-between gap-3 text-sm text-slate-700">
-                  <div className="font-medium">B 畫面表現出眾</div>
-                  <div className="text-right font-medium">C 音樂動聽</div>
-                </div>
-
-                <div
-                  className="mt-4 -mx-2 grid gap-0 sm:mx-0"
-                  style={{ gridTemplateColumns: 'repeat(17, minmax(0, 1fr))' }}
-                >
-                  {ratioOptions.map((option) => (
-                    <label
-                      key={option.value}
-                      className="flex cursor-pointer flex-col items-center justify-center gap-1 px-0 py-2"
-                    >
-                      <span
-                        className={
-                          practiceBC === option.value
-                            ? 'min-h-10 lg:min-h-12 text-center text-[9px] lg:text-[11px] font-semibold leading-tight text-slate-900 [writing-mode:vertical-rl]'
-                            : 'min-h-10 lg:min-h-12 text-center text-[9px] lg:text-[11px] leading-tight text-slate-500 [writing-mode:vertical-rl]'
-                        }
-                      >
-                        {option.description}
-                      </span>
-
-                      <input
-                        type="radio"
-                        name="practice-bc-scale"
-                        value={option.value}
-                        checked={practiceBC === option.value}
-                        onChange={() => setPracticeBC(option.value)}
-                        className="h-3 w-3 lg:h-4 lg:w-4 accent-slate-900"
-                      />
-
-                      <span
-                        className={
-                          practiceBC === option.value
-                            ? 'text-[10px] lg:text-xs font-semibold leading-none text-slate-900'
-                            : 'text-[10px] lg:text-xs leading-none text-slate-500'
-                        }
-                      >
-                        {option.displayLabel}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-
-                <div className="mt-2 text-center text-xs text-slate-500">
-                  中間 1 = 兩者一樣重要
-                </div>
-
-                <div className="mt-3 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700">
-                  <p>
-                    目前選擇：
-                    <span className="font-semibold text-slate-900">
-                      {sliderRatioMap[practiceBC]}
-                    </span>
-                  </p>
-
-                  <p className="mt-1 text-slate-500">
-                    {getImportanceText(practiceBC, 'B', 'C')}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => setStep('tutorial')}
-                className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-              >
-                回到作答說明
-              </button>
-
-              <button
-                onClick={() => {
-                  if (practiceBC >= 5 && practiceBC <= 8) {
-                    setStep('formalIntro');
-                  } else {
-                    setStep('logicHelp');
-                  }
-                }}
-                className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
-              >
-                下一步
-              </button>
-            </div>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  if (step === 'logicHelp') {
-    return (
-      <main className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-12">
-          <div className="w-full rounded-2xl bg-white p-4 sm:p-6 lg:p-8 shadow-sm ring-1 ring-slate-200">
-            <h2 className="text-2xl font-bold tracking-tight">邏輯補充說明</h2>
-
-            <p className="mt-4 text-base leading-7 text-slate-700">
-              在這個練習題中，前兩組比較結果已顯示：
-            </p>
-
-            <div className="mt-6 space-y-3 rounded-xl bg-slate-100 px-4 py-4 text-sm leading-7 text-slate-700">
-              <p>
-                A 相較於 B：
-                <span className="font-semibold text-slate-900"> 稍微重要</span>
-                ，約可理解為
-                <span className="font-semibold text-slate-900"> 3 倍重要</span>
-              </p>
-
-              <p>
-                A 相較於 C：
-                <span className="font-semibold text-slate-900"> 極為重要</span>
-                ，約可理解為
-                <span className="font-semibold text-slate-900"> 7 倍重要</span>
-              </p>
-            </div>
-
-            <div className="mt-6 space-y-4 text-sm leading-7 text-slate-700">
-              <p>
-                在 AHP 的兩兩比較中，判斷結果應盡量維持一致性。
-                若 A 比 B 重要約 3 倍，而 A 比 C 重要約 7 倍，
-                則 B 與 C 的差距應該介於兩者之間。
-              </p>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
-                <p className="font-medium text-slate-900">簡化理解：</p>
-                <p className="mt-2">
-                  A / B ≈ 3，A / C ≈ 7，因此 B / C 約為 7 ÷ 3，也就是約 2.3。
-                </p>
-              </div>
-
-              <p>
-                因此，在 B 與 C 的比較中，較合理的判斷會是：
-                <span className="font-semibold text-slate-900">
-                  {' '}
-                  B 相較於 C 較重要
-                </span>
-                ，且重要程度通常不應過於極端。
-              </p>
-
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4">
-                <p className="font-medium text-emerald-900">建議選擇範圍：</p>
-                <p className="mt-2 text-emerald-800">
-                  選擇 B 相較於 C 約
-                  <span className="font-semibold"> 2～5 倍重要</span>
-                  的選項，也就是下方比例中的
-                  <span className="font-semibold"> 2:1、3:1、4:1、5:1</span>
-                  。
-                </p>
-              </div>
-
-              <p>
-                換句話說，三者的整體關係通常較接近：
-                <span className="font-semibold text-slate-900"> A &gt; B &gt; C</span>
-                ，但 B 與 C 的差距不應比 A 與 C 的差距還要極端。
-              </p>
-            </div>
-
-            <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => setStep('tutorialPractice')}
-                className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-              >
-                回到練習題
+                下一步：進入正式作答說明
               </button>
             </div>
           </div>
@@ -2090,14 +2323,14 @@ export default function Home() {
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <button
-                onClick={() => setStep('tutorialPractice')}
+                onClick={() => setStep('tutorial')}
                 className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
               >
-                回到練習題
+                回到作答說明
               </button>
 
               <button
-                onClick={() => setStep('lv1Intro')}
+                onClick={() => setStep('lv2_1Intro')}
                 className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
               >
                 進入正式題
@@ -2107,14 +2340,6 @@ export default function Home() {
         </div>
       </main>
     );
-  }
-
-  if (step === 'lv1Intro') {
-    return renderAhpPage('lv1', '回到正式作答開始');
-  }
-
-  if (step === 'lv1Done') {
-    return renderDonePage('lv1Done');
   }
 
   if (step === 'lv2_1Intro') {
