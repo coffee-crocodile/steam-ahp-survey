@@ -19,27 +19,30 @@ export async function POST(request) {
 
     const supabase = createClient(supabaseUrl, supabaseSecretKey);
 
-    const { error } = await supabase.from('responses').insert({
+    const insertData = {
+      submitted_at: data.submittedAt ?? new Date().toISOString(),
+
       gender: data.profile?.gender ?? '',
       age: data.profile?.age ?? '',
       region: data.profile?.region ?? '',
       education: data.profile?.education ?? '',
+      filled_lv1_questionnaire:
+        data.profile?.filledLv1Questionnaire ?? '',
 
-      rpg_steam_use: data.eligibility?.rpgSteamUse ?? '',
-      review_use: data.eligibility?.reviewUse ?? '',
-      feature_know: data.eligibility?.featureKnow ?? '',
+      steam_years: data.eligibility?.steamYears ?? '',
+      steam_games: data.eligibility?.steamGames ?? '',
+      played_rpg: data.eligibility?.playedRpg ?? '',
+      used_steam_review_for_purchase:
+        data.eligibility?.usedSteamReviewForPurchase ?? '',
+      known_steam_features:
+        data.eligibility?.knownSteamFeatures ?? [],
 
       email: data.contact?.email ?? '',
       feedback: data.contact?.feedback ?? '',
 
-      lv1_ranking: data.rankings?.lv1 ?? null,
       lv2_1_ranking: data.rankings?.lv2_1 ?? null,
       lv2_2_ranking: data.rankings?.lv2_2 ?? null,
       lv2_3_ranking: data.rankings?.lv2_3 ?? null,
-
-      lv1_ab: data.answers?.lv1?.AB?.value ?? null,
-      lv1_ac: data.answers?.lv1?.AC?.value ?? null,
-      lv1_bc: data.answers?.lv1?.BC?.value ?? null,
 
       lv2_1_ab: data.answers?.lv2_1?.AB?.value ?? null,
       lv2_1_ac: data.answers?.lv2_1?.AC?.value ?? null,
@@ -56,9 +59,9 @@ export async function POST(request) {
       rankings: data.rankings ?? null,
       answers: data.answers ?? null,
       ahp_results: data.ahpResults ?? null,
+    };
 
-      submitted_at: data.submittedAt ?? new Date().toISOString(),
-    });
+    const { error } = await supabase.from('responses').insert(insertData);
 
     if (error) {
       console.error('Supabase insert error:', error);

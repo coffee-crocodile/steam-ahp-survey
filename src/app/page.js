@@ -1862,7 +1862,7 @@ export default function Home() {
                 </p>
 
                 <p className="mt-2 text-xs leading-5 text-slate-500">
-                  例如：Final Fantasy、女神異聞錄、艾爾登法環、博德之門等。
+                  例如：日式 RPG、動作 RPG、Roguelite RPG......。
                 </p>
 
                 <div className="mt-4 space-y-3 text-sm lg:text-base text-slate-700">
