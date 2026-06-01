@@ -6,6 +6,8 @@ export default function Home() {
 
   const [step, setStep] = useState('welcome');
 
+  const isQuestionnaireOpen = false;
+
   useEffect(() => {
     window.scrollTo({
       top: 0,
@@ -1226,6 +1228,34 @@ export default function Home() {
     });
   };
 
+
+  if (!isQuestionnaireOpen) {
+    return (
+      <main className="min-h-screen bg-slate-50 text-slate-900">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-8 sm:py-12">
+          <div className="rounded-2xl bg-white p-5 sm:p-8 shadow-sm ring-1 ring-slate-200">
+            <h1 className="text-3xl font-bold tracking-tight">
+              問卷已停止填答
+            </h1>
+
+            <div className="mt-6 space-y-4 text-base leading-7 text-slate-700">
+              <p>
+                感謝您對本研究的關注。本問卷目前已停止開放填答。
+              </p>
+
+              <p>
+                若您已完成填答，研究資料將僅供學術研究與統計分析使用，並以整體彙整方式呈現。
+              </p>
+
+              <p>
+                再次感謝您的參與與協助。
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   if (step === 'welcome') {
     return (
