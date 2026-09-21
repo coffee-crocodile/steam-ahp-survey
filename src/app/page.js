@@ -6,7 +6,7 @@ export default function Home() {
 
   const [step, setStep] = useState('welcome');
 
-  const isQuestionnaireOpen = false;
+  const isQuestionnaireOpen = true;
 
   useEffect(() => {
     window.scrollTo({
